@@ -31,25 +31,115 @@ class FlockingState:
     pred_pos: np.ndarray = field(init=False)
     pred_vel: np.ndarray = field(init=False)
     cohesion_metric: float = 0.0
+    _rng: np.random.Generator | None = field(default=None, repr=False)
+    _py_rng: random.Random | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
+        self._init_agents(None)
+
+    def reset(self, seed: int | None = None) -> None:
+        if seed is None:
+            self._rng = None
+            self._py_rng = None
+            self._init_agents(None)
+        else:
+            self.reset_with_seed(seed)
+
+    def reset_with_seed(self, seed: int) -> None:
+        """Deterministic initial conditions for controlled experiments."""
+        seed_i = int(seed) & 0x7FFFFFFF
+        self._rng = np.random.default_rng(seed_i)
+        self._py_rng = random.Random(seed_i)
+        np.random.seed(seed_i)
+        random.seed(seed_i)
+        self._init_agents(seed_i)
+
+    def apply_params(self, params: dict) -> None:
+        """Apply flock parameter overrides (validated ranges)."""
+        if "population" in params:
+            self.resize(int(params["population"]))
+        if "vision_radius" in params:
+            self.cfg.vision_radius = float(np.clip(params["vision_radius"], 0.04, 0.18))
+        if "separation_weight" in params:
+            self.cfg.separation_weight = float(np.clip(params["separation_weight"], 0.4, 2.6))
+        if "cohesion_weight" in params:
+            self.cfg.cohesion_weight = float(np.clip(params["cohesion_weight"], 0.4, 2.6))
+        if "alignment_weight" in params:
+            self.cfg.alignment_weight = float(np.clip(params["alignment_weight"], 0.4, 2.6))
+        if "predator_speed" in params:
+            self.cfg.predator_speed = float(np.clip(params["predator_speed"], 0.01, 0.045))
+        if "predator_radius" in params:
+            self.cfg.predator_radius = float(np.clip(params["predator_radius"], 0.02, 0.08))
+        self.cfg.sentiment_coupling = 0.0
+
+    def measure_metrics(self) -> dict[str, float]:
+        """Post-step observables for experiment time series."""
+        from simulations import metrics as met
+
+        n = int(self.pos.shape[0])
+        mean_speed = float(np.mean(np.linalg.norm(self.vel, axis=1))) if n else 0.0
+        spatial_entropy = met.shannon_entropy_positions(
+            self.pos[:, 0].tolist(), self.pos[:, 1].tolist(), grid=18
+        )
+        mean_sep = 0.0
+        alignment = 0.0
+        if n >= 2:
+            diff = self.pos[:, np.newaxis, :] - self.pos[np.newaxis, :, :]
+            dist = np.linalg.norm(diff, axis=2)
+            dist = dist + np.eye(n) * 1e6
+            min_dist = np.min(dist, axis=1)
+            mean_sep = float(np.mean(min_dist))
+
+            vision = self.cfg.vision_radius
+            close = (dist < vision) & (dist > 1e-6)
+            align_vals: list[float] = []
+            sp = np.linalg.norm(self.vel, axis=1) + 1e-9
+            for i in range(n):
+                idx = np.where(close[i])[0]
+                if idx.size == 0:
+                    continue
+                neigh_v = self.vel[idx]
+                nv = np.linalg.norm(neigh_v, axis=1) + 1e-9
+                cos = np.sum((self.vel[i] / sp[i]) * (neigh_v / nv[:, np.newaxis]), axis=1)
+                align_vals.append(float(np.mean(cos)))
+            if align_vals:
+                alignment = float(np.mean(align_vals))
+
+        return {
+            "cohesion": float(self.cohesion_metric),
+            "separation": mean_sep,
+            "alignment": alignment,
+            "spatial_entropy": spatial_entropy,
+            "mean_speed": mean_speed,
+        }
+
+    def _init_agents(self, seed: int | None) -> None:
         n = max(30, self.cfg.population)
         self.cfg.population = n
-        self.pos = np.random.rand(n, 2).astype(np.float64)
+        if seed is None:
+            self.pos = np.random.rand(n, 2).astype(np.float64)
+            ang = (np.random.rand(n) * 2 * math.pi).astype(np.float64)
+            sp = self.cfg.max_speed * (0.45 + 0.55 * np.random.rand(n))
+            pred_xy = (0.15 + random.random() * 0.7, 0.15 + random.random() * 0.7)
+            pv = np.random.randn(2).astype(np.float64)
+        else:
+            rng = self._rng or np.random.default_rng(seed)
+            py = self._py_rng or random.Random(seed)
+            self.pos = rng.random((n, 2)).astype(np.float64)
+            ang = (rng.random(n) * 2 * math.pi).astype(np.float64)
+            sp = self.cfg.max_speed * (0.45 + 0.55 * rng.random(n))
+            pred_xy = (0.15 + py.random() * 0.7, 0.15 + py.random() * 0.7)
+            pv = rng.standard_normal(2).astype(np.float64)
+
         self.pos[:, 0] *= 0.85
         self.pos[:, 0] += 0.075
         self.pos[:, 1] *= 0.85
         self.pos[:, 1] += 0.075
-        ang = (np.random.rand(n) * 2 * math.pi).astype(np.float64)
-        sp = self.cfg.max_speed * (0.45 + 0.55 * np.random.rand(n))
         self.vel = np.stack([np.cos(ang) * sp, np.sin(ang) * sp], axis=1)
-        self.pred_pos = np.array([0.15 + random.random() * 0.7, 0.15 + random.random() * 0.7], dtype=np.float64)
-        pv = np.random.randn(2).astype(np.float64)
-        pv /= np.linalg.norm(pv) + 1e-9
+        self.pred_pos = np.array(pred_xy, dtype=np.float64)
+        pv = pv / (np.linalg.norm(pv) + 1e-9)
         self.pred_vel = pv * self.cfg.predator_speed
-
-    def reset(self) -> None:
-        self.__post_init__()
+        self.cohesion_metric = 0.0
 
     def resize(self, n: int) -> None:
         n = max(50, min(650, int(n)))
@@ -72,13 +162,17 @@ class FlockingState:
             new_vel[old:, 1] = np.sin(ang) * sp
         self.pos, self.vel = new_pos, new_vel
 
+    def _rand_int(self, lo: int, hi: int) -> int:
+        if self._rng is not None:
+            return int(self._rng.integers(lo, hi))
+        return int(np.random.randint(lo, hi))
+
     def step(self, dt: float = 1.0) -> None:
         cfg = self.cfg
         n = self.pos.shape[0]
         if n < 2:
             return
 
-        # Pairwise vectors pos[j]-pos[i] stored as diff[j,i] = pos[j]-pos[i] ... use broadcasting
         p = self.pos
         diff = p[np.newaxis, :, :] - p[:, np.newaxis, :]
         dist = np.linalg.norm(diff, axis=2) + 1e-9
@@ -88,7 +182,6 @@ class FlockingState:
         vision = cfg.vision_radius
         mask = (dist < vision) & (~eye)
 
-        # neighbors count for cohesion metric
         neigh = np.sum(mask, axis=1).astype(np.float64)
         self.cohesion_metric = float(np.mean(neigh / max(1.0, n * 0.05)))
 
@@ -115,7 +208,6 @@ class FlockingState:
             + cfg.cohesion_weight * coh
         )
 
-        # Predator repulsion
         to_pred = self.pred_pos[np.newaxis, :] - p
         pd = np.linalg.norm(to_pred, axis=1) + 1e-9
         flee = np.zeros((n, 2), dtype=np.float64)
@@ -127,7 +219,6 @@ class FlockingState:
 
         acc = acc + flee
 
-        # Sentiment bias from market (coherent flock = bullish): slight upward drift
         sc = cfg.sentiment_coupling
         if abs(sc) > 1e-6:
             acc[:, 1] += sc * 0.06 * dt
@@ -138,7 +229,6 @@ class FlockingState:
 
         self.pos += self.vel * dt
 
-        # Soft bounce walls
         margin = 0.02
         for dim in (0, 1):
             low = self.pos[:, dim] < margin
@@ -148,9 +238,8 @@ class FlockingState:
             self.vel[low, dim] *= -1
             self.vel[high, dim] *= -1
 
-        # Predator motion toward flock + jitter
         com = np.mean(p, axis=0)
-        target = com * 0.62 + p[np.random.randint(0, n)] * 0.38
+        target = com * 0.62 + p[self._rand_int(0, n)] * 0.38
         toward = target - self.pred_pos
         tn = np.linalg.norm(toward) + 1e-9
         desired = toward / tn * cfg.predator_speed * (1.05 + 0.25 * math.sin(self.pred_pos[0] * 14.2))

@@ -171,3 +171,18 @@ gh auth login
 gh repo create emergence-simulator --public --source=. --remote=origin --push
 ```
 
+---
+
+## Experiment lab (flock A/B)
+
+Compare two **predator-speed** settings under identical initial conditions:
+
+1. Open the app and click **Experiment lab** in the header (live sim pauses to save CPU).
+2. Set **baseline** and **variant** predator speeds, optional **seed** and **steps**.
+3. Click **Run comparison** — the server runs two isolated flock simulations (no ants/market coupling).
+4. Use side-by-side flock views, metric charts, and the plain-language readout.
+
+API: `POST /api/experiment/flock` with JSON body `{ "seed": 42, "steps": 240, "shared": { "population": 320 }, "baseline": { "predator_speed": 0.018 }, "variant": { "predator_speed": 0.034 } }`.
+
+Tests: `pip install -r requirements-dev.txt && pytest`.
+
