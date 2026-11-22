@@ -441,3 +441,172 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.experiment-panel {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(18, 26, 40, 0.95), rgba(10, 14, 22, 0.9));
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+
+.experiment-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.experiment-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 52rem;
+}
+
+.experiment-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.experiment-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 14px;
+}
+
+.experiment-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.experiment-controls input[type="range"],
+.experiment-controls input[type="number"],
+.experiment-controls select {
+  width: 100%;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--cyan);
+  font-size: 11px;
+}
+
+.experiment-error {
+  color: var(--danger);
+  font-size: 12px;
+  margin: 0;
+}
+
+.experiment-viz-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .experiment-viz-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.experiment-viz-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--panel);
+}
+
+.exp-viz-title {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.experiment-playback {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.experiment-playback input[type="range"] {
+  flex: 1;
+}
+
+.exp-chart-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--panel-hi);
+}
+
+.exp-chart-legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  margin-bottom: 6px;
+}
+
+.exp-chart-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+}
+
+.experiment-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.exp-summary-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+.exp-summary-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 6px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.experiment-readout h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.experiment-readout ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.exp-disclaimer {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.controls button.primary,
+.experiment-actions button.primary {
+  border-color: rgba(0, 229, 255, 0.45);
+  color: var(--cyan);
+}

@@ -7,6 +7,7 @@ import { FlockViz3D } from "./components/FlockViz3D"
 import { LoadingScreen } from "./components/LoadingScreen"
 import { MarketViz } from "./components/MarketViz"
 import { MetricsStrip } from "./components/MetricsStrip"
+import { FlockExperimentPanel } from "./components/FlockExperimentPanel"
 import { TutorialOverlay } from "./components/TutorialOverlay"
 import { useEmergenceSocket } from "./hooks/useEmergenceSocket"
 import type { EmergenceState } from "./types"
@@ -55,6 +56,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [priceSeries, setPriceSeries] = useState<number[]>([])
   const [flock3d, setFlock3d] = useState(false)
+  const [view, setView] = useState<"dashboard" | "experiment">("dashboard")
 
   useEffect(() => {
     if (mode === "live" && liveState.tick > 0) setLoading(false)
@@ -171,6 +173,17 @@ export default function App() {
           <button type="button" onClick={() => sendControl({ action: "reset" })}>
             Reset (R)
           </button>
+          <button
+            type="button"
+            className={view === "experiment" ? "primary" : undefined}
+            onClick={() => {
+              const next = view === "dashboard" ? "experiment" : "dashboard"
+              setView(next)
+              if (next === "experiment") sendControl({ action: "pause" })
+            }}
+          >
+            {view === "experiment" ? "Back to dashboard" : "Experiment lab"}
+          </button>
           <button type="button" className="warn" onClick={() => sendControl({ action: "shock" })}>
             Shock market
           </button>
@@ -196,6 +209,10 @@ export default function App() {
         </div>
       </header>
 
+      {view === "experiment" ? (
+        <FlockExperimentPanel onPauseLive={() => sendControl({ action: "pause" })} />
+      ) : (
+      <>
       <div className="stage-wrap">
         <div className="coupling-wrap">
           <CouplingMini c={display.coupling} />
@@ -420,6 +437,8 @@ export default function App() {
           </>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }

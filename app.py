@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Any
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit
 
 from models.db import init_db, list_simulation_runs, load_simulation_run, save_simulation_run
@@ -97,6 +97,26 @@ def api_run(run_id: str) -> Any:
 def health() -> Any:
     return jsonify({"ok": True, "tick": engine.tick})
 
+
+
+from simulations.flock_experiment import run_flock_compare
+
+
+@app.route("/api/experiment/flock", methods=["POST"])
+def api_flock_experiment() -> Any:
+    body = request.get_json(silent=True) or {}
+    try:
+        result = run_flock_compare(
+            body.get("baseline"),
+            body.get("variant"),
+            shared=body.get("shared"),
+            seed=int(body.get("seed", 42)),
+            steps=int(body.get("steps", 240)),
+            sample_every=int(body.get("sample_every", 4)),
+        )
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": "invalid_params", "detail": str(exc)}), 400
+    return jsonify(result)
 
 def main() -> None:
     init_db()
